@@ -1,0 +1,31 @@
+# Local environment and caches
+vgemma4/
+.cache/
+tmp/
+__pycache__/
+*.py[cod]
+
+# Training artifacts
+saves/
+logs/
+analysis/
+
+# Large local data
+datasets/*.json
+!datasets/dataset_info.json
+!datasets/source_manifest.json
+
+# Third-party checkout recreated during setup
+LlamaFactory/
+
+# Local Hugging Face credentials or environment files
+*.env
+.env
+.env.*
+token
+stored_tokens
+
+# System/editor noise
+.DS_Store
+.vscode/
+.idea/
