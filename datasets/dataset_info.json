@@ -1,0 +1,42 @@
+{
+  "sft_demonstration_dataset": {
+    "file_name": "sft_demonstration_dataset.json",
+    "columns": {
+      "prompt": "instruction",
+      "query": "input",
+      "response": "output",
+      "history": "history",
+      "system": "system"
+    }
+  },
+  "dpo_preference_dataset": {
+    "file_name": "dpo_preference_dataset.json",
+    "ranking": true,
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "conversations",
+      "chosen": "chosen",
+      "rejected": "rejected"
+    }
+  },
+  "sft_demonstration_dataset_test": {
+    "file_name": "sft_demonstration_dataset_test.json",
+    "columns": {
+      "prompt": "instruction",
+      "query": "input",
+      "response": "output",
+      "history": "history",
+      "system": "system"
+    }
+  },
+  "ppo_unlabeled_prompts_dataset_test": {
+    "file_name": "ppo_unlabeled_prompts_dataset_test.json",
+    "columns": {
+      "prompt": "instruction",
+      "query": "input",
+      "response": "output",
+      "history": "history",
+      "system": "system"
+    }
+  }
+}

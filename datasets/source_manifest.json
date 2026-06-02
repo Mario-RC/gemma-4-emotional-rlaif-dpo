@@ -1,0 +1,22 @@
+{
+  "repo_id": "mario-rc/aif-emotional-generation",
+  "revision": "default",
+  "downloaded_at_utc": "2026-06-02T15:38:27.653869+00:00",
+  "source_files": [
+    "dialogues/train.json",
+    "dialogues/test.json",
+    "aif_annotations/train.json"
+  ],
+  "targets": {
+    "sft_demonstration_dataset.json": 782,
+    "sft_demonstration_dataset_test.json": 196,
+    "dpo_preference_dataset.json": 111222,
+    "ppo_unlabeled_prompts_dataset_test.json": 392
+  },
+  "derivations": {
+    "sft_demonstration_dataset.json": "dialogues/train.json filtered where set == sft-demonstration",
+    "sft_demonstration_dataset_test.json": "dialogues/test.json filtered where set == sft-demonstration",
+    "dpo_preference_dataset.json": "aif_annotations/train.json",
+    "ppo_unlabeled_prompts_dataset_test.json": "dialogues/test.json"
+  }
+}
