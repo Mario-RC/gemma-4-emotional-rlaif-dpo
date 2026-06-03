@@ -212,6 +212,20 @@ scripts/gemma4.py pipeline e2b --strict --force
 scripts/gemma4.py reference --stage all --strict --force
 ```
 
+## Resume From Checkpoint
+
+If SFT or DPO stops before the final adapter is written, resume from the latest
+`checkpoint-*` directory with `--resume`:
+
+```bash
+scripts/gemma4.py train e2b --stage dpo --resume
+scripts/gemma4.py pipeline e2b --strict --resume
+```
+
+The CLI keeps the original YAML unchanged, writes a temporary resume config
+under `tmp/resume_configs/`, sets `resume_from_checkpoint` to the newest
+checkpoint, and disables `overwrite_output_dir` for that resumed run.
+
 ## Running By Stage
 
 SFT:

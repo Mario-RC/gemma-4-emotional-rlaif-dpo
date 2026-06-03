@@ -9,6 +9,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import yaml
+
 
 DEFAULT_ROOT = Path(__file__).resolve().parents[1]
 ROOT = Path(os.environ.get("GEMMA4_ROOT", DEFAULT_ROOT)).resolve()
@@ -122,6 +124,47 @@ def reference_artifact(stage: str) -> Path:
     raise ValueError(f"Unsupported reference stage: {stage}")
 
 
+def latest_checkpoint_for(model_name: str, stage: str, smoke: bool) -> Path | None:
+    if stage not in {"sft", "dpo"}:
+        return None
+
+    output_dir = artifact_for(model_name, stage, smoke).parent
+    if not output_dir.exists():
+        return None
+
+    checkpoints: list[tuple[int, Path]] = []
+    for path in output_dir.glob("checkpoint-*"):
+        if not path.is_dir():
+            continue
+        try:
+            step = int(path.name.removeprefix("checkpoint-"))
+        except ValueError:
+            continue
+        checkpoints.append((step, path))
+
+    if not checkpoints:
+        return None
+    return max(checkpoints, key=lambda item: item[0])[1]
+
+
+def resume_config_for(config_path: Path, checkpoint_path: Path) -> Path:
+    with config_path.open(encoding="utf-8") as f:
+        config = yaml.safe_load(f)
+
+    if not isinstance(config, dict):
+        raise TypeError(f"Expected a YAML mapping in {config_path}")
+
+    config["resume_from_checkpoint"] = str(checkpoint_path)
+    config["overwrite_output_dir"] = False
+
+    output_dir = ROOT / "tmp" / "resume_configs"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    resume_path = output_dir / f"{config_path.stem}_resume.yaml"
+    with resume_path.open("w", encoding="utf-8") as f:
+        yaml.safe_dump(config, f, sort_keys=False, allow_unicode=True)
+    return resume_path
+
+
 def skip_existing(label: str, artifact: Path, force: bool) -> bool:
     if artifact.exists() and not force:
         print(f"[SKIP] {label}: {artifact} already exists. Add --force to rerun.")
@@ -159,12 +202,28 @@ def stream_command(command: list[str], env: dict[str, str], cwd: Path, log_path:
             log_file.close()
 
 
-def run_llamafactory(model_name: str, stage: str, smoke: bool, force: bool = False) -> int:
+def run_llamafactory(
+    model_name: str,
+    stage: str,
+    smoke: bool,
+    force: bool = False,
+    resume: bool = False,
+) -> int:
     artifact = artifact_for(model_name, stage, smoke)
     if skip_existing(f"{model_name} {stage}", artifact, force):
         return 0
     env = project_env(ROOT)
     config_path = config_for(model_name, stage, smoke)
+    if resume and stage in {"sft", "dpo"}:
+        checkpoint_path = latest_checkpoint_for(model_name, stage, smoke)
+        if checkpoint_path:
+            config_path = resume_config_for(config_path, checkpoint_path)
+            print(f"[RESUME] {model_name} {stage}: using {checkpoint_path}")
+        else:
+            print(f"[INFO] {model_name} {stage}: no checkpoint found; starting from the base config.")
+    elif resume:
+        print(f"[INFO] {model_name} {stage}: --resume only applies to training stages; using the base config.")
+
     log_path = log_for(model_name, stage, smoke)
     command = [str(ROOT / "vgemma4" / "bin" / "llamafactory-cli"), "train", str(config_path)]
     return stream_command(command, env=env, cwd=ROOT / "LlamaFactory", log_path=log_path)
@@ -194,7 +253,13 @@ def command_train(args: argparse.Namespace) -> int:
 
     for model_name in selected_models(args.model):
         for stage in stages:
-            code = run_llamafactory(model_name, stage, args.smoke, force=args.force)
+            code = run_llamafactory(
+                model_name,
+                stage,
+                args.smoke,
+                force=args.force,
+                resume=getattr(args, "resume", False),
+            )
             if code != 0:
                 return code
     return 0
@@ -259,7 +324,13 @@ def command_reference(args: argparse.Namespace) -> int:
 
 
 def command_pipeline(args: argparse.Namespace) -> int:
-    train_args = argparse.Namespace(model=args.model, stage="pipeline", smoke=args.smoke, force=args.force)
+    train_args = argparse.Namespace(
+        model=args.model,
+        stage="pipeline",
+        smoke=args.smoke,
+        force=args.force,
+        resume=args.resume,
+    )
     code = command_train(train_args)
     if code != 0 or args.smoke or args.skip_analysis:
         return code
@@ -346,6 +417,7 @@ def build_parser() -> argparse.ArgumentParser:
     train.add_argument("--stage", choices=[*FULL_STAGES, "pipeline"], default="pipeline")
     train.add_argument("--smoke", action="store_true", help="Use smoke configs; pipeline runs SFT and DPO only.")
     train.add_argument("--force", action="store_true", help="Rerun stages even when their expected artifacts exist.")
+    train.add_argument("--resume", action="store_true", help="Resume SFT/DPO stages from the latest checkpoint if present.")
     train.set_defaults(func=command_train)
 
     predict = subparsers.add_parser("predict", help="Run SFT and/or DPO prediction on the matching test set.")
@@ -374,6 +446,7 @@ def build_parser() -> argparse.ArgumentParser:
     pipeline.add_argument("--run-name", choices=[*PREDICT_RUNS, "all"], default="all")
     pipeline.add_argument("--strict", action="store_true")
     pipeline.add_argument("--force", action="store_true", help="Rerun all pipeline stages even when artifacts exist.")
+    pipeline.add_argument("--resume", action="store_true", help="Resume SFT/DPO stages from the latest checkpoint if present.")
     pipeline.set_defaults(func=command_pipeline)
 
     data = subparsers.add_parser("data", help="Download and prepare datasets from Hugging Face.")
