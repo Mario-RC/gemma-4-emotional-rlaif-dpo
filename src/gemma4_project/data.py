@@ -38,23 +38,25 @@ def load_json(path: Path) -> list[dict[str, Any]]:
     return data
 
 
-def write_json(path: Path, data: list[dict[str, Any]], force: bool) -> None:
+def write_json(path: Path, data: list[dict[str, Any]], force: bool) -> bool:
     if path.exists() and not force:
         print(f"[SKIP] {path} exists. Use --force to overwrite.")
-        return
+        return False
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
     print(f"[WRITE] {path} ({len(data)} rows)")
+    return True
 
 
-def copy_json(path: Path, source_path: Path, force: bool) -> None:
+def copy_json(path: Path, source_path: Path, force: bool) -> bool:
     if path.exists() and not force:
         print(f"[SKIP] {path} exists. Use --force to overwrite.")
-        return
+        return False
     path.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(source_path, path)
     print(f"[WRITE] {path}")
+    return True
 
 
 def download_source(repo_id: str, filename: str, revision: str | None) -> Path:
@@ -72,7 +74,12 @@ def filter_by_set(rows: list[dict[str, Any]], split_name: str) -> list[dict[str,
     return [row for row in rows if row.get("set") == split_name]
 
 
-def write_manifest(root: Path, repo_id: str, revision: str | None, counts: dict[str, int]) -> None:
+def write_manifest(root: Path, repo_id: str, revision: str | None, counts: dict[str, int], force: bool) -> None:
+    path = root / "datasets" / "source_manifest.json"
+    if path.exists() and not force:
+        print(f"[SKIP] {path} exists. Use --force to overwrite.")
+        return
+
     manifest = {
         "repo_id": repo_id,
         "revision": revision or "default",
@@ -86,7 +93,6 @@ def write_manifest(root: Path, repo_id: str, revision: str | None, counts: dict[
             "ppo_unlabeled_prompts_dataset_test.json": "dialogues/test.json",
         },
     }
-    path = root / "datasets" / "source_manifest.json"
     with path.open("w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2, ensure_ascii=False)
     print(f"[WRITE] {path}")
@@ -113,11 +119,15 @@ def prepare_datasets(root: Path, repo_id: str, revision: str | None, force: bool
         "ppo_unlabeled_prompts_dataset_test.json": len(dialogues_test),
     }
 
-    write_json(datasets_dir / "sft_demonstration_dataset.json", sft_train, force=force)
-    write_json(datasets_dir / "sft_demonstration_dataset_test.json", sft_test, force=force)
-    copy_json(datasets_dir / "dpo_preference_dataset.json", dpo_train_path, force=force)
-    copy_json(datasets_dir / "ppo_unlabeled_prompts_dataset_test.json", dialogues_test_path, force=force)
-    write_manifest(root, repo_id, revision, targets)
+    wrote_data = any(
+        (
+            write_json(datasets_dir / "sft_demonstration_dataset.json", sft_train, force=force),
+            write_json(datasets_dir / "sft_demonstration_dataset_test.json", sft_test, force=force),
+            copy_json(datasets_dir / "dpo_preference_dataset.json", dpo_train_path, force=force),
+            copy_json(datasets_dir / "ppo_unlabeled_prompts_dataset_test.json", dialogues_test_path, force=force),
+        )
+    )
+    write_manifest(root, repo_id, revision, targets, force=force or wrote_data)
 
     return targets
 

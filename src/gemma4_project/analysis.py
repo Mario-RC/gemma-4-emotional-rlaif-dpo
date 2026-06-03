@@ -233,6 +233,16 @@ def main() -> int:
                 continue
 
             predictions = load_jsonl(prediction_path)
+            if len(predictions) != len(dataset):
+                message = (
+                    f"[WARN] Prediction row count mismatch for {model} {run_name}: "
+                    f"{len(predictions)} predictions vs {len(dataset)} dataset rows"
+                )
+                if args.strict:
+                    print(message, file=sys.stderr)
+                    return 1
+                print(message, file=sys.stderr)
+
             merged, predict_key = merge_dataset_and_predictions(dataset, predictions, model, run_name)
             result_path = (
                 args.root

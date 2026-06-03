@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import os
 import subprocess
-import sys
 from pathlib import Path
 
 import yaml
@@ -173,13 +172,15 @@ def skip_existing(label: str, artifact: Path, force: bool) -> bool:
 
 
 def stream_command(command: list[str], env: dict[str, str], cwd: Path, log_path: Path | None = None) -> int:
+    command_text = f"$ {' '.join(command)}"
     if log_path:
         log_path.parent.mkdir(parents=True, exist_ok=True)
-        log_file = log_path.open("w", encoding="utf-8")
+        log_file = log_path.open("w", encoding="utf-8", buffering=1)
+        log_file.write(command_text + "\n")
     else:
         log_file = None
 
-    print(f"$ {' '.join(command)}")
+    print(command_text)
     try:
         process = subprocess.Popen(
             command,
@@ -196,6 +197,7 @@ def stream_command(command: list[str], env: dict[str, str], cwd: Path, log_path:
             print(line, end="")
             if log_file:
                 log_file.write(line)
+                log_file.flush()
         return process.wait()
     finally:
         if log_file:
@@ -398,6 +400,11 @@ def command_status(args: argparse.Namespace) -> int:
         for label, path in paths.items():
             marker = "OK" if path.exists() else "--"
             print(f"  {marker} {label}: {path}")
+
+        for stage in ("sft", "dpo"):
+            checkpoint_path = latest_checkpoint_for(model_name, stage, smoke=False)
+            if checkpoint_path and not artifact_for(model_name, stage, smoke=False).exists():
+                print(f"  OK {stage}_checkpoint: {checkpoint_path}")
     return 0
 
 

@@ -55,6 +55,9 @@ and prepares the local LlamaFactory dataset files:
 The command also writes `datasets/source_manifest.json` with the source repo,
 revision, derivations, and row counts.
 
+Running `scripts/gemma4.py data` again is idempotent: existing dataset JSON files
+and the source manifest are left unchanged unless `--force` is used.
+
 ## Gemma2 DPO Reference
 
 Gemma4 DPO results are compared against the published Gemma2 DPO adapter:
@@ -115,6 +118,9 @@ scripts/gemma4.py status e2b
 scripts/gemma4.py status e4b
 scripts/gemma4.py status reference
 ```
+
+When a training stage has checkpoints but no final adapter yet, `status` also
+prints the newest `checkpoint-*` directory that can be used with `--resume`.
 
 ## Setup After Clone
 
@@ -220,11 +226,15 @@ If SFT or DPO stops before the final adapter is written, resume from the latest
 ```bash
 scripts/gemma4.py train e2b --stage dpo --resume
 scripts/gemma4.py pipeline e2b --strict --resume
+scripts/gemma4.py pipeline all --strict --resume
 ```
 
 The CLI keeps the original YAML unchanged, writes a temporary resume config
 under `tmp/resume_configs/`, sets `resume_from_checkpoint` to the newest
 checkpoint, and disables `overwrite_output_dir` for that resumed run.
+
+Use `--resume` after an interrupted SFT/DPO run. A plain rerun without `--resume`
+uses the base YAML and may overwrite an unfinished output directory.
 
 ## Running By Stage
 
@@ -284,6 +294,14 @@ analysis/gemma4_summary.md
 analysis/gemma4_vs_gemma2_dpo.json
 analysis/gemma4_vs_gemma2_dpo.tsv
 analysis/gemma4_vs_gemma2_dpo.md
+```
+
+LlamaFactory stdout/stderr for train and prediction stages is mirrored to
+`logs/`. The CLI writes the launched command at the top of each log file and
+flushes new lines as they arrive, so long-running jobs can be monitored with:
+
+```bash
+tail -f logs/dpo_gemma-4-E2B-it_dpo_3ep.log
 ```
 
 ## Environment
