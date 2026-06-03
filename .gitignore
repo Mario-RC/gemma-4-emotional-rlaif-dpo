@@ -4,6 +4,7 @@ vgemma4/
 tmp/
 __pycache__/
 *.py[cod]
+.ruff_cache/
 
 # Training artifacts
 saves/
