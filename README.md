@@ -1,4 +1,4 @@
-# Gemma4 Emotional RLAIF DPO
+# Gemma 4 Emotional RLAIF DPO
 
 Standalone project for training, evaluating, and comparing Gemma4 models with the
 same SFT and DPO/RLAIF workflow used in the earlier Gemma2 experiments.
