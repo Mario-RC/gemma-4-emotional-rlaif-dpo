@@ -14,7 +14,6 @@ analysis/
 # Large local data
 datasets/*.json
 !datasets/dataset_info.json
-!datasets/source_manifest.json
 
 # Third-party checkout recreated during setup
 LlamaFactory/
